@@ -1,4 +1,4 @@
-$publishUrl="http://170.64.192.59/upload"
+$publishUrl="http://170.64.192.59:8000/upload"
 $packageName = "Ben_Button_Case.docx.jpg"
 $username="Ben"
 $password="5P1b8Z"
