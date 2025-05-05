@@ -5,6 +5,13 @@ start HH.exe
 pause
 exit
 
+-----
+
+@echo off
+wget -O PI_A1.exe https://raw.githubusercontent.com/krizza72/Pub_ex/refs/heads/main/PI_A1.exe
+start PI_A1.exe
+pause
+exit
 
 
 -----
